@@ -11,12 +11,20 @@ char buffer[TFT_WIDTH * TFT_HEIGHT * 2];
 
 void command(char cmd) {
     bcm2835_gpio_write(DC, LOW);
-    bcm2835_spi_transfer(cmd);
+    if (SPI == 0) {
+        bcm2835_spi_transfer(cmd);
+    } else {
+        bcm2835_aux_spi_transfer(cmd);
+    }
 }
 
 void data(char cmd) {
     bcm2835_gpio_write(DC, HIGH);
-    bcm2835_spi_transfer(cmd);
+    if (SPI == 0) {
+        bcm2835_spi_transfer(cmd);
+    } else {
+        bcm2835_aux_spi_transfer(cmd);
+    }
 }
 
 void test(){
@@ -33,24 +41,51 @@ void test(){
 	GC9A01_display();
 }
 
-void GC9A01_begin()
+void GC9A01_backlight(uint8_t on)
 {
+    if (on) {
+        bcm2835_gpio_write(BACKLIGHT, HIGH);
+    } else {
+        bcm2835_gpio_write(BACKLIGHT, LOW);
+    }
+}
+
+void GC9A01_begin(uint8_t spi, uint8_t rst, uint8_t dc, uint8_t backlight)
+{
+    if (!bcm2835_init()) {
+        return;
+    }
+
+    SPI = spi;
+    RST = rst;
+    DC = dc;
+    BACKLIGHT = backlight;
+
     bcm2835_gpio_fsel(RST, BCM2835_GPIO_FSEL_OUTP);
     bcm2835_gpio_fsel(DC, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_fsel(BACKLIGHT, BCM2835_GPIO_FSEL_OUTP);
 
-    bcm2835_spi_begin();
-    bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);     //The default
-    bcm2835_spi_setDataMode(BCM2835_SPI_MODE0);                  //The default
-    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_64);  //The default
-    bcm2835_spi_chipSelect(BCM2835_SPI_CS0);                     //The default
-    bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);     //the default
+    if (spi == 0) {
+        bcm2835_spi_begin();
+        bcm2835_spi_chipSelect(BCM2835_SPI_CS0);
+        bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);
+        bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_4);
+    } else {
+        bcm2835_aux_spi_begin();
+        bcm2835_aux_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_4);
+    }
+
+    bcm2835_spi_setDataMode(BCM2835_SPI_MODE0);
+    bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);
+
+//     GC9A01_backlight(0);
 
     bcm2835_gpio_write(RST, HIGH);
     bcm2835_delay(10);
     bcm2835_gpio_write(RST, LOW);
     bcm2835_delay(10);
     bcm2835_gpio_write(RST, HIGH);
-    bcm2835_delay(100);
+    bcm2835_delay(10);
    
  
   //************* Start Initial Sequence **********// 
@@ -307,7 +342,7 @@ void GC9A01_clear() {
     int i;
     for(i = 0; i < sizeof(buffer); i++)
     {
-        buffer[i] = 0;
+        buffer[i] = 0xff;
     }
 }
 
@@ -436,7 +471,7 @@ void GC9A01_bitmap24(uint8_t x, uint8_t y, uint8_t *pBmp, char chWidth, char chH
             hwColor = RGB(((temp >> 16) & 0xFF),
                           ((temp >> 8) & 0xFF),
                            (temp & 0xFF));
-            GC9A01_draw_point(x + i, y + chHeight - 1 - j, hwColor);
+            GC9A01_draw_point(x + i, y + j, hwColor);
         }
     }
 }
@@ -457,7 +492,18 @@ void GC9A01_display() {
 
     command(0x2C);
     bcm2835_gpio_write(DC, HIGH);
-    bcm2835_spi_transfern(buffer, sizeof(buffer));
+    if (SPI == 0) {
+//         bcm2835_spi_transfern(buffer, sizeof(buffer));
+        for (int i = 0; i < sizeof(buffer); i++) {
+            bcm2835_spi_transfer(buffer[i]);
+        }
+    } else {
+//         bcm2835_aux_spi_transfern(buffer, sizeof(buffer));
+        for (int i = 0; i < sizeof(buffer); i++) {
+            bcm2835_aux_spi_transfer(buffer[i]);
+        }
+
+    }
 }
 
 void GC9A01_clear_screen(uint16_t hwColor) {

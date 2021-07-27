@@ -29,10 +29,12 @@ enum Color {
 #define TFT_WIDTH 240
 #define TFT_HEIGHT 240
 
-#define RST 25
-#define DC  24
+static uint8_t RST;
+static uint8_t DC;
+static uint8_t SPI;
+static uint8_t BACKLIGHT;
 
-void GC9A01_begin();
+void GC9A01_begin(uint8_t spi, uint8_t rst, uint8_t dc, uint8_t backlight);
 void test();
 void GC9A01_display();
 void GC9A01_clear();
@@ -45,6 +47,7 @@ void GC9A01_char3216(uint8_t x, uint8_t y, uint8_t chChar, uint16_t hwColor);
 void GC9A01_char(uint8_t x, uint8_t y, char acsii, char size, char mode, uint16_t hwColor);
 void GC9A01_clear_screen(uint16_t hwColor);
 void GC9A01_draw_point(int chXpos, int chYpos, uint16_t hwColor);
+void GC9A01_backlight(uint8_t on);
 
 static const uint8_t mono_bmp[2048]=
 {
